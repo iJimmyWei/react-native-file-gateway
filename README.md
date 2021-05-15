@@ -1,6 +1,20 @@
-# react-native-file-gateway
+# React Native File Gateway
 
-A React Native library making file access easier for developers, without the tears
+A React Native library making file access easier for developers as first class citizens, without the tears
+
+NOTE: This library is in early development, focusing primarily on Android.
+
+## Supported platforms
+* Android (In development)
+* iOS (TO:DO)
+* Windows (TO:DO)
+* MacOS (TO:DO)
+
+## Roadmap
+* File system interoperability (WIP)
+* Downloading/uploading files (TO:DO)
+* Cryptography (TO:DO)
+* Unit/integration/E2E testing (TO:DO)
 
 ## Installation
 
@@ -13,9 +27,7 @@ npm install react-native-file-gateway
 ```js
 import FileGateway from "react-native-file-gateway";
 
-// ...
-
-const result = await FileGateway.multiply(3, 7);
+// TO:DO
 ```
 
 ## Contributing
