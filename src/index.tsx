@@ -1,16 +1,27 @@
 import { NativeModules } from "react-native";
 
 const { FileGateway } = NativeModules;
-const { readFile, writeFile, listFiles, exists, deleteFile, isDirectory, moveDirectory }: RawFileGatewayType = FileGateway;
+const { readFile, writeFile, listFiles, exists, deleteFile,
+    isDirectory, moveDirectory, status }: RawFileGatewayType = FileGateway;
 
 // export type DirectoryType = "Application" | "Cache" | "External";
+
+interface RawStatus {
+    size: number;
+    mimeType?: string;
+    extension: string;
+    nameWithoutExtension: string;
+    lastModified: string;
+    creationTime?: string; // API Level 26 and above only 
+    lastAccessedTime?: string; // API Level 26 and above only
+}
 
 type RawFileGatewayType = {
     // File operations
     readFile(path: string, encoding: Encoding): Promise<string>; //to:do encoding opt
     writeFile(fileName: string, data: string, intention: string): Promise<string>; //to:do encoding opt
     deleteFile(path: string): Promise<boolean>;
-
+    status(path: string): Promise<RawStatus>;
 
     // Directory operations
     listFiles(path: string, recursive: boolean): Promise<string[]>;
@@ -21,12 +32,12 @@ type RawFileGatewayType = {
     exists(path: string): Promise<boolean>;
 };
 
-export function listFilesGateway(path: string, recursive?: boolean): Promise<string[]> {
+function listFilesGateway(path: string, recursive?: boolean): Promise<string[]> {
     return listFiles(path, recursive ?? false);
 }
 
 export type Encoding = "utf-8" | "base64";
-export function readFileGateway(path: string, encoding?: Encoding): Promise<string> {
+function readFileGateway(path: string, encoding?: Encoding): Promise<string> {
     const defaultEncoding: Encoding = "utf-8";
     
     return readFile(path, encoding ?? defaultEncoding);
@@ -49,7 +60,8 @@ const fileGateway: FileGatewayType = {
     exists,
     isDirectory,
     moveDirectory,
-    deleteFile
+    deleteFile,
+    status
 };
 
 export default fileGateway;

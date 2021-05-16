@@ -1,13 +1,21 @@
 package com.reactnativefilegateway
 
+import android.annotation.SuppressLint
+import android.content.ContentResolver
+import android.net.Uri
 import android.os.Build
 import android.util.Base64
+import android.webkit.MimeTypeMap
 import androidx.annotation.RequiresApi
 import com.facebook.react.bridge.*
 import java.io.File
+import java.io.IOException
+import java.net.URLConnection
 import java.nio.file.Files
 import java.nio.file.Paths
 import java.nio.file.StandardCopyOption
+import java.nio.file.attribute.BasicFileAttributes
+import java.text.SimpleDateFormat
 import java.util.*
 
 enum class DirectoryType {
@@ -81,9 +89,126 @@ class FileGatewayModule(reactContext: ReactApplicationContext) : ReactContextBas
     }
   }
 
-  // fileExists(path: string, promise: Promise)
+  private fun File.getCreationTime(): String? {
+    try {
+      val path = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+        Paths.get(this.path)
+      } else {
+        return null
+      }
 
-  // stat(path: string) - TO:DO
+      val creationTime = Files.getAttribute(path, "creationTime")
+      return creationTime.toString()
+    } catch (e: IOException) {
+      return null
+    }
+  }
+
+  private fun File.getLastAccessedTime(): String? {
+    try {
+      val path = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+        Paths.get(this.path)
+      } else {
+        return null
+      }
+
+      val attrs = Files.readAttributes(path, BasicFileAttributes::class.java)
+      val time = attrs.lastAccessTime()
+      return time.toString()
+    } catch (e: IOException) {
+      return null
+    }
+  }
+
+  private fun File.getMimeType(): String? {
+    if (this.isDirectory) {
+      return null
+    }
+
+    fun fallbackMimeType(uri: Uri): String? {
+      return if (uri.scheme == ContentResolver.SCHEME_CONTENT) {
+        reactApplicationContext.contentResolver.getType(uri)
+      } else {
+        val extension = MimeTypeMap.getFileExtensionFromUrl(uri.toString())
+        MimeTypeMap.getSingleton().getMimeTypeFromExtension(extension.toLowerCase(Locale.getDefault()))
+      }
+    }
+
+    fun catchUrlMimeType(): String? {
+      val uri = Uri.fromFile(this)
+
+      return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+        val path = Paths.get(uri.toString())
+        try {
+          Files.probeContentType(path) ?: fallbackMimeType(uri)
+        } catch (ignored: IOException) {
+          fallbackMimeType(uri)
+        }
+      } else {
+        fallbackMimeType(uri)
+      }
+    }
+
+    val stream = this.inputStream()
+    return try {
+      URLConnection.guessContentTypeFromStream(stream) ?: catchUrlMimeType()
+    } catch (ignored: IOException) {
+      catchUrlMimeType()
+    } finally {
+      stream.close()
+    }
+  }
+
+  /**
+   * Retrieves the status of a file given it's [path]
+   */
+  @ReactMethod
+  fun status(path: String, promise: Promise) {
+    try {
+      val file = File(path);
+      if (!file.exists()) {
+        throw Error("File does not exist")
+      }
+
+      val statusMap = Arguments.createMap()
+
+      val bytes = file.length()
+      statusMap.putInt("size", bytes.toInt())
+
+      val mimeType = file.getMimeType()
+      statusMap.putString("mime", mimeType)
+
+      val nameWithoutExtension = file.nameWithoutExtension
+      val extension = file.extension
+      statusMap.putString("nameWithoutExtension", nameWithoutExtension)
+      statusMap.putString("extension", extension)
+
+      val lastModified = file.lastModified() // returns back as unix time
+      val lastModifiedDate = Date(lastModified)
+      val formattedLastModifiedDate = toISO8601UTC(lastModifiedDate)
+      statusMap.putString("lastModified", formattedLastModifiedDate)
+
+      val creationTime = file.getCreationTime()
+      statusMap.putString("creationTime", creationTime.toString())
+
+      val lastAccessedTime = file.getLastAccessedTime()
+      statusMap.putString("lastAccessedTime", lastAccessedTime)
+
+      promise.resolve(statusMap)
+    } catch (e: Throwable) {
+      promise.reject(e)
+    }
+  }
+
+  @SuppressLint("SimpleDateFormat")
+  fun toISO8601UTC(date: Date?): String? {
+    val tz = TimeZone.getTimeZone("UTC")
+
+    // Use SimpleDateFormat for maximum backwards compatibility
+    val df = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'")
+    df.timeZone = tz
+    return df.format(date)
+  }
 
   ///////////////////////////
   // Directory Methods
