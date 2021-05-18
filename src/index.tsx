@@ -4,7 +4,8 @@ const { FileGateway } = NativeModules;
 const { readFile, writeFile, listFiles, exists, deleteFile,
     isDirectory, moveDirectory, status }: RawFileGatewayType = FileGateway;
 
-// export type DirectoryType = "Application" | "Cache" | "External";
+export type Intention = "Application" | "Ephemeral" | "Persistent";
+export type Collection = "audio";
 
 interface RawStatus {
     size: number;
@@ -19,7 +20,7 @@ interface RawStatus {
 type RawFileGatewayType = {
     // File operations
     readFile(path: string, encoding: Encoding): Promise<string>; //to:do encoding opt
-    writeFile(fileName: string, data: string, intention: string): Promise<string>; //to:do encoding opt
+    writeFile(fileName: string, data: string, intention: Intention, collection?: Collection): Promise<string>; //to:do encoding opt
     deleteFile(path: string): Promise<boolean>;
     status(path: string): Promise<RawStatus>;
 

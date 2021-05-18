@@ -2,13 +2,16 @@ package com.reactnativefilegateway
 
 import android.annotation.SuppressLint
 import android.content.ContentResolver
+import android.content.ContentValues
 import android.net.Uri
 import android.os.Build
+import android.provider.MediaStore
 import android.util.Base64
 import android.webkit.MimeTypeMap
 import androidx.annotation.RequiresApi
 import com.facebook.react.bridge.*
 import java.io.File
+import java.io.FileWriter
 import java.io.IOException
 import java.net.URLConnection
 import java.nio.file.Files
@@ -17,12 +20,6 @@ import java.nio.file.StandardCopyOption
 import java.nio.file.attribute.BasicFileAttributes
 import java.text.SimpleDateFormat
 import java.util.*
-
-enum class DirectoryType {
-  Application,
-  Cache,
-  External
-}
 
 class FileGatewayModule(reactContext: ReactApplicationContext) : ReactContextBaseJavaModule(reactContext) {
   override fun getName(): String {
@@ -37,16 +34,70 @@ class FileGatewayModule(reactContext: ReactApplicationContext) : ReactContextBas
   }
 
   ///// ---- File methods
+  private fun writeInternalFile(path: String, fileName: String, data: String, promise: Promise) {
+    val out = FileWriter(File(path, fileName))
+    out.write(data)
+    out.close()
 
-  //https://stackoverflow.com/questions/60798804/store-image-via-android-media-store-in-new-folder
-  // intention should be application (default), persistent (external), emphermeral (cache)
-  // file type - audio, image, video
+    promise.resolve("$path/$fileName")
+  }
+
+  private fun createAudioStore(fileName: String): Uri? {
+    val audioCollection =
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+        MediaStore.Audio.Media.getContentUri(
+          MediaStore.VOLUME_EXTERNAL_PRIMARY
+        )
+      } else {
+        MediaStore.Audio.Media.EXTERNAL_CONTENT_URI
+      }
+
+    return reactApplicationContext.contentResolver.insert(
+      audioCollection,
+      ContentValues().apply {
+        put(MediaStore.Audio.Media.DISPLAY_NAME, fileName)
+      }
+    )
+  }
+
+  /**
+   * Writes a file given it's [fileName] and returning a path
+   * The [intention] may be either application (data removed on uninstall), persistent (beyond application uninstall), or ephemeral (cache)
+   * The [collection] may be either audio, image, video, document or download - if unspecified, it will be determined automatically
+   */
   @ReactMethod
-  fun writeFile(fileName: String, data: String, intention: String, promise: Promise) {
+  fun writeFile(fileName: String, data: String, intention: String, collection: String, promise: Promise) {
     try {
-      // TO:DO
+      if (intention === "application") {
+        return writeInternalFile(reactApplicationContext.filesDir.path, fileName, data, promise)
+      }
 
-      promise.resolve(true)
+      if (intention === "ephemeral") {
+        return writeInternalFile(reactApplicationContext.cacheDir.path, fileName, data, promise)
+      }
+
+      if (intention === "persistent") {
+        var store: Uri? = null;
+
+        when(collection) {
+          "audio" -> store = createAudioStore(fileName)
+        }
+
+        if (store == null) {
+          throw Error("Unable to create store")
+        }
+
+        store.let {
+          reactApplicationContext.contentResolver.openOutputStream(it)
+        }?.use { output ->
+          output.write(data.toByteArray())
+          output.close()
+        }
+
+        promise.resolve(store.toString())
+      }
+
+      throw Error("The given intention is not a valid one")
     } catch (e: Throwable) {
       promise.reject(e)
     }
