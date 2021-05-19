@@ -4,8 +4,8 @@ const { FileGateway } = NativeModules;
 const { readFile, writeFile, listFiles, exists, deleteFile,
     isDirectory, moveDirectory, status }: RawFileGatewayType = FileGateway;
 
-export type Intention = "Application" | "Ephemeral" | "Persistent";
-export type Collection = "audio";
+export type Intention = "application" | "ephemeral" | "persistent";
+export type Collection = "audio" | "image" | "video" | "download";
 
 interface RawStatus {
     size: number;
@@ -20,7 +20,7 @@ interface RawStatus {
 type RawFileGatewayType = {
     // File operations
     readFile(path: string, encoding: Encoding): Promise<string>; //to:do encoding opt
-    writeFile(fileName: string, data: string, intention: Intention, collection?: Collection): Promise<string>; //to:do encoding opt
+    writeFile(fileName: string, data: string, intention: Intention, collection: Collection): Promise<string>; //to:do encoding opt
     deleteFile(path: string): Promise<boolean>;
     status(path: string): Promise<RawStatus>;
 
@@ -32,6 +32,15 @@ type RawFileGatewayType = {
     // Misc operations
     exists(path: string): Promise<boolean>;
 };
+
+function writeFilesGateway(fileName: string, data: string, intention: Intention, collection?: Collection) {
+    //TODO: determine what the collection should be if not specified using the mime
+    if (!collection) {
+        collection = "download";
+    }
+
+    return writeFile(fileName, data, intention, collection);
+}
 
 function listFilesGateway(path: string, recursive?: boolean): Promise<string[]> {
     return listFiles(path, recursive ?? false);
@@ -50,14 +59,15 @@ export const Dirs: {
 } = FileGateway.getConstants();
 
 export interface FileGatewayType extends RawFileGatewayType {
-    listFiles(path: string, recursive?: boolean): Promise<string[]>;
-    readFile(path: string, encoding?: Encoding): Promise<string>;
+    listFiles: typeof listFilesGateway;
+    readFile: typeof readFileGateway;
+    writeFile: typeof writeFilesGateway;
 }
 
 const fileGateway: FileGatewayType = {
     readFile: readFileGateway,
     listFiles: listFilesGateway,
-    writeFile,
+    writeFile: writeFilesGateway,
     exists,
     isDirectory,
     moveDirectory,

@@ -5,6 +5,7 @@ import android.content.ContentResolver
 import android.content.ContentValues
 import android.net.Uri
 import android.os.Build
+import android.os.Environment
 import android.provider.MediaStore
 import android.util.Base64
 import android.webkit.MimeTypeMap
@@ -33,13 +34,16 @@ class FileGatewayModule(reactContext: ReactApplicationContext) : ReactContextBas
     return constants
   }
 
-  ///// ---- File methods
-  private fun writeInternalFile(path: String, fileName: String, data: String, promise: Promise) {
+  ///////////////////////////
+  // File Methods
+  ///////////////////////////
+
+  private fun writeInternalFile(path: String, fileName: String, data: String): String {
     val out = FileWriter(File(path, fileName))
     out.write(data)
     out.close()
 
-    promise.resolve("$path/$fileName")
+    return "$path/$fileName";
   }
 
   private fun createAudioStore(fileName: String): Uri? {
@@ -60,6 +64,61 @@ class FileGatewayModule(reactContext: ReactApplicationContext) : ReactContextBas
     )
   }
 
+  private fun createImageStore(fileName: String): Uri? {
+    val imageCollection =
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+        MediaStore.Images.Media.getContentUri(
+          MediaStore.VOLUME_EXTERNAL_PRIMARY
+        )
+      } else {
+        MediaStore.Images.Media.EXTERNAL_CONTENT_URI
+      }
+
+    return reactApplicationContext.contentResolver.insert(
+      imageCollection,
+      ContentValues().apply {
+        put(MediaStore.Images.Media.DISPLAY_NAME, fileName)
+      }
+    )
+  }
+
+  private fun createVideoStore(fileName: String): Uri? {
+    val videoCollection =
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+        MediaStore.Video.Media.getContentUri(
+          MediaStore.VOLUME_EXTERNAL_PRIMARY
+        )
+      } else {
+        MediaStore.Video.Media.EXTERNAL_CONTENT_URI
+      }
+
+    return reactApplicationContext.contentResolver.insert(
+      videoCollection,
+      ContentValues().apply {
+        put(MediaStore.Video.Media.DISPLAY_NAME, fileName)
+      }
+    )
+  }
+
+  private fun createDownloadStore(fileName: String): Uri? {
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+      val downloadDir = reactApplicationContext.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS + "/" + fileName)
+
+      return Uri.fromFile(downloadDir)
+    }
+
+    val downloadCollection =
+        MediaStore.Downloads.getContentUri(
+          MediaStore.VOLUME_EXTERNAL_PRIMARY
+        )
+    return reactApplicationContext.contentResolver.insert(
+      downloadCollection,
+      ContentValues().apply {
+        put(MediaStore.Downloads.DISPLAY_NAME, fileName)
+      }
+    )
+  }
+
   /**
    * Writes a file given it's [fileName] and returning a path
    * The [intention] may be either application (data removed on uninstall), persistent (beyond application uninstall), or ephemeral (cache)
@@ -68,19 +127,26 @@ class FileGatewayModule(reactContext: ReactApplicationContext) : ReactContextBas
   @ReactMethod
   fun writeFile(fileName: String, data: String, intention: String, collection: String, promise: Promise) {
     try {
-      if (intention === "application") {
-        return writeInternalFile(reactApplicationContext.filesDir.path, fileName, data, promise)
+      if (intention == "application") {
+        val path = writeInternalFile(reactApplicationContext.filesDir.path, fileName, data)
+        promise.resolve(path)
+        return;
       }
 
-      if (intention === "ephemeral") {
-        return writeInternalFile(reactApplicationContext.cacheDir.path, fileName, data, promise)
+      if (intention == "ephemeral") {
+        val path = writeInternalFile(reactApplicationContext.cacheDir.path, fileName, data)
+        promise.resolve(path)
+        return;
       }
 
-      if (intention === "persistent") {
+      if (intention == "persistent") {
         var store: Uri? = null;
 
         when(collection) {
           "audio" -> store = createAudioStore(fileName)
+          "image" -> store = createImageStore(fileName)
+          "video" -> store = createVideoStore(fileName)
+          "download" -> store = createDownloadStore(fileName)
         }
 
         if (store == null) {
@@ -97,7 +163,7 @@ class FileGatewayModule(reactContext: ReactApplicationContext) : ReactContextBas
         promise.resolve(store.toString())
       }
 
-      throw Error("The given intention is not a valid one")
+      throw Error("The given intention is not a valid one. Valid intentions are application, ephemeral, or persistent")
     } catch (e: Throwable) {
       promise.reject(e)
     }
@@ -112,7 +178,7 @@ class FileGatewayModule(reactContext: ReactApplicationContext) : ReactContextBas
     try {
       val data = File(path).inputStream().use { it.readBytes() }
 
-      if (encoding === "base64") {
+      if (encoding == "base64") {
         val encodedB64String = Base64.encodeToString(data, Base64.DEFAULT)
         promise.resolve(encodedB64String)
       }
