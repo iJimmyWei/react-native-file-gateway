@@ -72,4 +72,27 @@ class FileGatewayModuleTest {
     assertThat(exception.value, `is`(instanceOf(CreateDirectoryException::class.java)))
     assertThat(exception.value.message, `is`("Unable to create directory at the given path"))
   }
+
+  @Test
+  fun isDirectory_ReturnsTrue() {
+    tempPath?.let { reactModule?.isDirectory(it, mockPromise) }
+
+    verify(mockPromise, times(1)).resolve(true)
+  }
+
+  @Test
+  fun isDirectory_NotExists_ReturnsFalse() {
+    reactModule?.isDirectory("/not/a/directory", mockPromise)
+
+    verify(mockPromise, times(1)).resolve(false)
+  }
+
+  @Test
+  fun isDirectory_File_ReturnsFalse() {
+    val tempFile = folder.newFile()
+
+    reactModule?.isDirectory(tempFile.absolutePath, mockPromise)
+
+    verify(mockPromise, times(1)).resolve(false)
+  }
 }

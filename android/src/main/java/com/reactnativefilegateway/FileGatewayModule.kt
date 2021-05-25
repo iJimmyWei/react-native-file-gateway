@@ -373,7 +373,7 @@ class FileGatewayModule(reactContext: ReactApplicationContext) : ReactContextBas
 
       promise.resolve(isDirectory)
     } catch (e: Throwable) {
-      promise.reject(e)
+      promise.reject(ERROR_UNKNOWN_ERROR, e)
     }
   }
 
