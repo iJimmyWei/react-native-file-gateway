@@ -12,8 +12,10 @@ import android.webkit.MimeTypeMap
 import androidx.annotation.RequiresApi
 import com.facebook.react.bridge.*
 import com.reactnativefilegateway.FileGatewayModule.Errors.Companion.ERROR_CREATE_DIRECTORY_FAILED
+import com.reactnativefilegateway.FileGatewayModule.Errors.Companion.ERROR_DELETE_DIRECTORY_FAILED
 import com.reactnativefilegateway.FileGatewayModule.Errors.Companion.ERROR_UNKNOWN_ERROR
 import com.reactnativefilegateway.exceptions.CreateDirectoryException
+import com.reactnativefilegateway.exceptions.DeleteDirectoryException
 import java.io.File
 import java.io.FileWriter
 import java.io.IOException
@@ -41,6 +43,7 @@ class FileGatewayModule(reactContext: ReactApplicationContext) : ReactContextBas
   internal annotation class Errors {
     companion object {
       var ERROR_CREATE_DIRECTORY_FAILED = "ERROR_CREATE_DIRECTORY_FAILED"
+      var ERROR_DELETE_DIRECTORY_FAILED = "ERROR_DELETE_DIRECTORY_FAILED"
 
       /** Raised for unexpected errors.  */
       var ERROR_UNKNOWN_ERROR = "ERROR_UNKNOWN_ERROR"
@@ -378,33 +381,28 @@ class FileGatewayModule(reactContext: ReactApplicationContext) : ReactContextBas
   }
 
   /**
-   * Deletes all files recursively within the directory located at [path].
+   * Deletes the directory located at [path].
    */
   @ReactMethod
   fun deleteDirectory(path: String, promise: Promise) {
     try {
-      if (!File(path).isDirectory) {
-        throw Error("Specified path is not a directory")
+      val filePath = File(path)
+
+      if (!filePath.isDirectory) {
+        throw DeleteDirectoryException("Not a directory")
       }
 
-      var deleteSuccess = true;
-
-      val walkTopDown = File(path).walkTopDown()
-      walkTopDown.forEach {
-        val files = it.list()
-        files?.forEach { file ->
-          // perhaps return back a list of failed deleted files?
-          var deleteSuccessful = File("$path/$file").delete()
-
-          if (!deleteSuccessful) {
-            deleteSuccess = false
-          }
-        }
+      val success = filePath.delete()
+      if (!success) {
+        throw DeleteDirectoryException("Delete failed for an unknown reason")
       }
 
-      promise.resolve(deleteSuccess)
-    } catch (e: Throwable) {
-      promise.reject(e)
+      promise.resolve(path)
+    } catch(e: DeleteDirectoryException) {
+      promise.reject(ERROR_DELETE_DIRECTORY_FAILED, e)
+    }
+    catch (e: Throwable) {
+      promise.reject(ERROR_UNKNOWN_ERROR, e)
     }
   }
 
