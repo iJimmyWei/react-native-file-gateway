@@ -11,6 +11,9 @@ import android.util.Base64
 import android.webkit.MimeTypeMap
 import androidx.annotation.RequiresApi
 import com.facebook.react.bridge.*
+import com.reactnativefilegateway.FileGatewayModule.Errors.Companion.ERROR_CREATE_DIRECTORY_FAILED
+import com.reactnativefilegateway.FileGatewayModule.Errors.Companion.ERROR_UNKNOWN_ERROR
+import com.reactnativefilegateway.exceptions.CreateDirectoryException
 import java.io.File
 import java.io.FileWriter
 import java.io.IOException
@@ -32,6 +35,16 @@ class FileGatewayModule(reactContext: ReactApplicationContext) : ReactContextBas
     constants["Cache"] = reactApplicationContext.cacheDir.path
     constants["Application"] = reactApplicationContext.filesDir.path
     return constants
+  }
+
+  /** Known error codes.  */
+  internal annotation class Errors {
+    companion object {
+      var ERROR_CREATE_DIRECTORY_FAILED = "ERROR_CREATE_DIRECTORY_FAILED"
+
+      /** Raised for unexpected errors.  */
+      var ERROR_UNKNOWN_ERROR = "ERROR_UNKNOWN_ERROR"
+    }
   }
 
   ///////////////////////////
@@ -339,12 +352,14 @@ class FileGatewayModule(reactContext: ReactApplicationContext) : ReactContextBas
     try {
       val success = File(path).mkdir()
       if (!success) {
-        throw Error("Failed to create directory");
+        throw CreateDirectoryException("Unable to create directory at the given path")
       }
 
-      promise.resolve(true)
+      promise.resolve(path)
+    } catch (e: CreateDirectoryException) {
+      promise.reject(ERROR_CREATE_DIRECTORY_FAILED, e)
     } catch (e: Throwable) {
-      promise.reject(e)
+      promise.reject(ERROR_UNKNOWN_ERROR, e)
     }
   }
 
