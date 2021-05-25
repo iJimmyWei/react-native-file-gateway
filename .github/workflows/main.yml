@@ -1,8 +1,6 @@
 name: CI
 
-on:
-  push:
-    branches: [main]
+on: [push]
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -18,6 +16,28 @@ jobs:
 
       # - name: Run tests TO:DO
       #   run: yarn jest
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/cache@v2
+        with:
+          path: '**/node_modules'
+          key: ${{ runner.os }}-modules
+      - uses: actions/setup-java@v2
+        with:
+          java-version: '11'
+          distribution: 'adopt'
+
+      - name: install modules
+        run: yarn
+
+      - name: Run the Gradle package task
+        run: cd android && ./gradlew test
+  deploy:
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    steps:
       - name: Release
         env:
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}

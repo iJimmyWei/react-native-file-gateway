@@ -64,7 +64,7 @@ class FileGatewayModuleTest {
 
   @Test
   fun createDirectory_ReturnsError() {
-    reactModule?.createDirectory("invalid_directory", mockPromise)
+    reactModule?.createDirectory("", mockPromise)
 
     val exception = ArgumentCaptor.forClass(Exception::class.java)
 
