@@ -74,7 +74,7 @@ const path = await FileGateway.writeFile(
 	* Sets the encoding when reading the file
 ---
   
-`deleteFile(path: string): Promise<boolean>` - Deletes a file, given it's path and **returns true** if successful as a `Promise<boolean>`
+`deleteFile(path: string): Promise<string>` - Deletes a file, given it's path and **returns the path** if successful as a `Promise<string>`
 
 ---
 `status(path: string): Promise<RawStatus>` - Returns back the `Promise<RawStatus>` of a file, given it's `path`
@@ -98,6 +98,11 @@ const path = await FileGateway.writeFile(
 
 ---
 `moveDirectory(path: string, targetPath: string): Promise<string>` - Moves a directory from the `path` to the `targetPath` (the destination). Any files at the destination will be overridden by default. **Returns back the `targetPath`** as a `Promise<string>`
+
+---
+  
+`deleteDirectory(path: string): Promise<string>` - Deletes a directory, given it's path and **returns the path** if successful as a `Promise<string>`
+
 
 ## Contributing
 

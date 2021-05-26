@@ -1,7 +1,7 @@
 import { NativeModules } from "react-native";
 
 const { FileGateway } = NativeModules;
-const { readFile, writeFile, listFiles, exists, deleteFile,
+const { readFile, writeFile, listFiles, exists, deleteFile, deleteDirectory,
     isDirectory, moveDirectory, status }: RawFileGatewayType = FileGateway;
 
 export type Intention = "application" | "ephemeral" | "persistent";
@@ -21,13 +21,14 @@ type RawFileGatewayType = {
     // File operations
     readFile(path: string, encoding: Encoding): Promise<string>; //to:do encoding opt
     writeFile(fileName: string, data: string, intention: Intention, collection: Collection): Promise<string>; //to:do encoding opt
-    deleteFile(path: string): Promise<boolean>;
+    deleteFile(path: string): Promise<string>;
     status(path: string): Promise<RawStatus>;
 
     // Directory operations
     listFiles(path: string, recursive: boolean): Promise<string[]>;
     isDirectory(path: string): Promise<boolean>;
     moveDirectory(path: string, targetPath: string): Promise<string>;
+    deleteDirectory(path: string): Promise<string>;
 
     // Misc operations
     exists(path: string): Promise<boolean>;
@@ -72,6 +73,7 @@ const fileGateway: FileGatewayType = {
     isDirectory,
     moveDirectory,
     deleteFile,
+    deleteDirectory,
     status
 };
 

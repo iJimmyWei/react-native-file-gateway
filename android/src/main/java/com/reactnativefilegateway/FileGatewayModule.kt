@@ -11,6 +11,10 @@ import android.util.Base64
 import android.webkit.MimeTypeMap
 import androidx.annotation.RequiresApi
 import com.facebook.react.bridge.*
+import com.reactnativefilegateway.exceptions.CreateDirectoryException
+import com.reactnativefilegateway.exceptions.DeleteDirectoryException
+import com.reactnativefilegateway.exceptions.DeleteFileException
+import com.reactnativefilegateway.exceptions.ListDirectoryException
 import java.io.File
 import java.io.FileWriter
 import java.io.IOException
@@ -32,6 +36,19 @@ class FileGatewayModule(reactContext: ReactApplicationContext) : ReactContextBas
     constants["Cache"] = reactApplicationContext.cacheDir.path
     constants["Application"] = reactApplicationContext.filesDir.path
     return constants
+  }
+
+  /** Known error codes.  */
+  internal annotation class Errors {
+    companion object {
+      var ERROR_CREATE_DIRECTORY_FAILED = "ERROR_CREATE_DIRECTORY_FAILED"
+      var ERROR_DELETE_DIRECTORY_FAILED = "ERROR_DELETE_DIRECTORY_FAILED"
+      var ERROR_LIST_DIRECTORY_FAILED = "ERROR_LIST_DIRECTORY_FAILED"
+      var ERROR_DELETE_FILE_FAILED = "ERROR_DELETE_FILE_FAILED"
+
+      /** Raised for unexpected errors.  */
+      var ERROR_UNKNOWN_ERROR = "ERROR_UNKNOWN_ERROR"
+    }
   }
 
   ///////////////////////////
@@ -108,9 +125,9 @@ class FileGatewayModule(reactContext: ReactApplicationContext) : ReactContextBas
     }
 
     val downloadCollection =
-        MediaStore.Downloads.getContentUri(
-          MediaStore.VOLUME_EXTERNAL_PRIMARY
-        )
+      MediaStore.Downloads.getContentUri(
+        MediaStore.VOLUME_EXTERNAL_PRIMARY
+      )
     return reactApplicationContext.contentResolver.insert(
       downloadCollection,
       ContentValues().apply {
@@ -125,7 +142,7 @@ class FileGatewayModule(reactContext: ReactApplicationContext) : ReactContextBas
    * The [collection] may be either audio, image, video, document or download - if unspecified, it will be determined automatically
    */
   @ReactMethod
-  fun writeFile(fileName: String, data: String, intention: String, collection: String, promise: Promise) {
+  fun writeFile(fileName: String, data: String, intention: String, collection: String?, promise: Promise) {
     try {
       if (intention == "application") {
         val path = writeInternalFile(reactApplicationContext.filesDir.path, fileName, data)
@@ -142,7 +159,7 @@ class FileGatewayModule(reactContext: ReactApplicationContext) : ReactContextBas
       if (intention == "persistent") {
         var store: Uri? = null;
 
-        when(collection) {
+        when (collection) {
           "audio" -> store = createAudioStore(fileName)
           "image" -> store = createImageStore(fileName)
           "video" -> store = createVideoStore(fileName)
@@ -165,7 +182,7 @@ class FileGatewayModule(reactContext: ReactApplicationContext) : ReactContextBas
 
       throw Error("The given intention is not a valid one. Valid intentions are application, ephemeral, or persistent")
     } catch (e: Throwable) {
-      promise.reject(e)
+      promise.reject(Errors.ERROR_UNKNOWN_ERROR, e)
     }
   }
 
@@ -185,7 +202,7 @@ class FileGatewayModule(reactContext: ReactApplicationContext) : ReactContextBas
 
       promise.resolve(data.decodeToString())
     } catch (e: Throwable) {
-      promise.reject(e)
+      promise.reject(Errors.ERROR_UNKNOWN_ERROR, e)
     }
   }
 
@@ -195,14 +212,26 @@ class FileGatewayModule(reactContext: ReactApplicationContext) : ReactContextBas
   @ReactMethod
   fun deleteFile(path: String, promise: Promise) {
     try {
-      val success = File(path).delete()
+      val filePath = File(path)
+
+      if (!filePath.exists()) {
+        throw DeleteFileException("The file does not exist")
+      }
+
+      if (filePath.isDirectory) {
+        throw DeleteFileException("The file is a directory")
+      }
+
+      val success = filePath.delete()
       if (!success) {
         throw Error("Failed to delete file")
       }
 
-      promise.resolve(true)
+      promise.resolve(path)
+    } catch (e: DeleteFileException) {
+      promise.reject(Errors.ERROR_DELETE_FILE_FAILED, e)
     } catch (e: Throwable) {
-      promise.reject(e)
+      promise.reject(Errors.ERROR_UNKNOWN_ERROR, e)
     }
   }
 
@@ -339,12 +368,14 @@ class FileGatewayModule(reactContext: ReactApplicationContext) : ReactContextBas
     try {
       val success = File(path).mkdir()
       if (!success) {
-        throw Error("Failed to create directory");
+        throw CreateDirectoryException("Unable to create directory at the given path")
       }
 
-      promise.resolve(true)
+      promise.resolve(path)
+    } catch (e: CreateDirectoryException) {
+      promise.reject(Errors.ERROR_CREATE_DIRECTORY_FAILED, e)
     } catch (e: Throwable) {
-      promise.reject(e)
+      promise.reject(Errors.ERROR_UNKNOWN_ERROR, e)
     }
   }
 
@@ -358,38 +389,32 @@ class FileGatewayModule(reactContext: ReactApplicationContext) : ReactContextBas
 
       promise.resolve(isDirectory)
     } catch (e: Throwable) {
-      promise.reject(e)
+      promise.reject(Errors.ERROR_UNKNOWN_ERROR, e)
     }
   }
 
   /**
-   * Deletes all files recursively within the directory located at [path].
+   * Deletes the directory located at [path].
    */
   @ReactMethod
   fun deleteDirectory(path: String, promise: Promise) {
     try {
-      if (!File(path).isDirectory) {
-        throw Error("Specified path is not a directory")
+      val filePath = File(path)
+
+      if (!filePath.isDirectory) {
+        throw DeleteDirectoryException("Not a directory")
       }
 
-      var deleteSuccess = true;
-
-      val walkTopDown = File(path).walkTopDown()
-      walkTopDown.forEach {
-        val files = it.list()
-        files?.forEach { file ->
-          // perhaps return back a list of failed deleted files?
-          var deleteSuccessful = File("$path/$file").delete()
-
-          if (!deleteSuccessful) {
-            deleteSuccess = false
-          }
-        }
+      val success = filePath.delete()
+      if (!success) {
+        throw DeleteDirectoryException("Delete failed for an unknown reason")
       }
 
-      promise.resolve(deleteSuccess)
+      promise.resolve(path)
+    } catch (e: DeleteDirectoryException) {
+      promise.reject(Errors.ERROR_DELETE_DIRECTORY_FAILED, e)
     } catch (e: Throwable) {
-      promise.reject(e)
+      promise.reject(Errors.ERROR_UNKNOWN_ERROR, e)
     }
   }
 
@@ -399,24 +424,42 @@ class FileGatewayModule(reactContext: ReactApplicationContext) : ReactContextBas
   @ReactMethod
   fun listFiles(path: String, recursive: Boolean = false, promise: Promise) {
     try {
+      val filePath = File(path)
+      if (!filePath.isDirectory) {
+        throw ListDirectoryException("Not a directory")
+      }
+
       val filesArray = Arguments.createArray()
 
       if (recursive) {
-        val walkTopDown = File(path).walkTopDown()
+        val walkTopDown = filePath.walkTopDown()
         walkTopDown.forEach {
           val files = it.list()
           files?.forEach { file ->
-            filesArray.pushString(file)
+            val f = File("${path}/${file}")
+
+            if (!f.isDirectory) {
+              filesArray.pushString(file)
+            }
           }
         }
       } else {
-        val files = File(path).list()
-        files?.forEach { filesArray.pushString(it) }
+        val files = filePath.list()
+
+        files?.forEach { file ->
+          val f = File("${path}/${file}")
+
+          if (!f.isDirectory) {
+            filesArray.pushString(file)
+          }
+        }
       }
 
       promise.resolve(filesArray)
+    } catch (e: ListDirectoryException) {
+      promise.reject(Errors.ERROR_LIST_DIRECTORY_FAILED, e)
     } catch (e: Throwable) {
-      promise.reject(e)
+      promise.reject(Errors.ERROR_UNKNOWN_ERROR, e)
     }
   }
 
@@ -432,7 +475,7 @@ class FileGatewayModule(reactContext: ReactApplicationContext) : ReactContextBas
       val exists = File(path).exists()
       promise.resolve(exists)
     } catch (e: Throwable) {
-      promise.reject(e)
+      promise.reject(Errors.ERROR_UNKNOWN_ERROR, e)
     }
   }
 
@@ -454,13 +497,9 @@ class FileGatewayModule(reactContext: ReactApplicationContext) : ReactContextBas
 
       val path = Files.move(sourcePath, destinationPath, StandardCopyOption.REPLACE_EXISTING)
 
-      promise.resolve(path)
+      promise.resolve(path.toString())
     } catch (e: Throwable) {
-      promise.reject(e)
+      promise.reject(Errors.ERROR_UNKNOWN_ERROR, e)
     }
   }
-
-  // TO:DO
-  // - Cryptography
-  // - Downloads/Uploads
 }
