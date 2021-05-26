@@ -13,6 +13,7 @@ import androidx.annotation.RequiresApi
 import com.facebook.react.bridge.*
 import com.reactnativefilegateway.exceptions.CreateDirectoryException
 import com.reactnativefilegateway.exceptions.DeleteDirectoryException
+import com.reactnativefilegateway.exceptions.DeleteFileException
 import com.reactnativefilegateway.exceptions.ListDirectoryException
 import java.io.File
 import java.io.FileWriter
@@ -43,6 +44,7 @@ class FileGatewayModule(reactContext: ReactApplicationContext) : ReactContextBas
       var ERROR_CREATE_DIRECTORY_FAILED = "ERROR_CREATE_DIRECTORY_FAILED"
       var ERROR_DELETE_DIRECTORY_FAILED = "ERROR_DELETE_DIRECTORY_FAILED"
       var ERROR_LIST_DIRECTORY_FAILED = "ERROR_LIST_DIRECTORY_FAILED"
+      var ERROR_DELETE_FILE_FAILED = "ERROR_DELETE_FILE_FAILED"
 
       /** Raised for unexpected errors.  */
       var ERROR_UNKNOWN_ERROR = "ERROR_UNKNOWN_ERROR"
@@ -123,9 +125,9 @@ class FileGatewayModule(reactContext: ReactApplicationContext) : ReactContextBas
     }
 
     val downloadCollection =
-        MediaStore.Downloads.getContentUri(
-          MediaStore.VOLUME_EXTERNAL_PRIMARY
-        )
+      MediaStore.Downloads.getContentUri(
+        MediaStore.VOLUME_EXTERNAL_PRIMARY
+      )
     return reactApplicationContext.contentResolver.insert(
       downloadCollection,
       ContentValues().apply {
@@ -140,7 +142,7 @@ class FileGatewayModule(reactContext: ReactApplicationContext) : ReactContextBas
    * The [collection] may be either audio, image, video, document or download - if unspecified, it will be determined automatically
    */
   @ReactMethod
-  fun writeFile(fileName: String, data: String, intention: String, collection: String, promise: Promise) {
+  fun writeFile(fileName: String, data: String, intention: String, collection: String?, promise: Promise) {
     try {
       if (intention == "application") {
         val path = writeInternalFile(reactApplicationContext.filesDir.path, fileName, data)
@@ -157,7 +159,7 @@ class FileGatewayModule(reactContext: ReactApplicationContext) : ReactContextBas
       if (intention == "persistent") {
         var store: Uri? = null;
 
-        when(collection) {
+        when (collection) {
           "audio" -> store = createAudioStore(fileName)
           "image" -> store = createImageStore(fileName)
           "video" -> store = createVideoStore(fileName)
@@ -180,7 +182,7 @@ class FileGatewayModule(reactContext: ReactApplicationContext) : ReactContextBas
 
       throw Error("The given intention is not a valid one. Valid intentions are application, ephemeral, or persistent")
     } catch (e: Throwable) {
-      promise.reject(e)
+      promise.reject(Errors.ERROR_UNKNOWN_ERROR, e)
     }
   }
 
@@ -200,7 +202,7 @@ class FileGatewayModule(reactContext: ReactApplicationContext) : ReactContextBas
 
       promise.resolve(data.decodeToString())
     } catch (e: Throwable) {
-      promise.reject(e)
+      promise.reject(Errors.ERROR_UNKNOWN_ERROR, e)
     }
   }
 
@@ -210,14 +212,26 @@ class FileGatewayModule(reactContext: ReactApplicationContext) : ReactContextBas
   @ReactMethod
   fun deleteFile(path: String, promise: Promise) {
     try {
-      val success = File(path).delete()
+      val filePath = File(path)
+
+      if (!filePath.exists()) {
+        throw DeleteFileException("The file does not exist")
+      }
+
+      if (filePath.isDirectory) {
+        throw DeleteFileException("The file is a directory")
+      }
+
+      val success = filePath.delete()
       if (!success) {
         throw Error("Failed to delete file")
       }
 
-      promise.resolve(true)
+      promise.resolve(path)
+    } catch (e: DeleteFileException) {
+      promise.reject(Errors.ERROR_DELETE_FILE_FAILED, e)
     } catch (e: Throwable) {
-      promise.reject(e)
+      promise.reject(Errors.ERROR_UNKNOWN_ERROR, e)
     }
   }
 
@@ -397,10 +411,9 @@ class FileGatewayModule(reactContext: ReactApplicationContext) : ReactContextBas
       }
 
       promise.resolve(path)
-    } catch(e: DeleteDirectoryException) {
+    } catch (e: DeleteDirectoryException) {
       promise.reject(Errors.ERROR_DELETE_DIRECTORY_FAILED, e)
-    }
-    catch (e: Throwable) {
+    } catch (e: Throwable) {
       promise.reject(Errors.ERROR_UNKNOWN_ERROR, e)
     }
   }

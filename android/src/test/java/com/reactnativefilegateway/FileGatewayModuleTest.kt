@@ -3,12 +3,15 @@ package com.reactnativefilegateway
 import android.app.Application
 
 import android.os.Build
+import android.os.Environment
 import androidx.test.core.app.ApplicationProvider
 import com.facebook.react.bridge.*
 import com.reactnativefilegateway.FileGatewayModule.Errors.Companion.ERROR_CREATE_DIRECTORY_FAILED
 import com.reactnativefilegateway.FileGatewayModule.Errors.Companion.ERROR_DELETE_DIRECTORY_FAILED
+import com.reactnativefilegateway.FileGatewayModule.Errors.Companion.ERROR_DELETE_FILE_FAILED
 import com.reactnativefilegateway.exceptions.CreateDirectoryException
 import com.reactnativefilegateway.exceptions.DeleteDirectoryException
+import com.reactnativefilegateway.exceptions.DeleteFileException
 import com.reactnativefilegateway.exceptions.ListDirectoryException
 
 import org.assertj.core.api.Assertions.assertThat
@@ -41,6 +44,7 @@ import java.io.FileWriter
 @Config(sdk = [Build.VERSION_CODES.P], application = Application::class, manifest = Config.NONE)
 class FileGatewayModuleTest {
   private var reactModule: FileGatewayModule? = null
+  private var reactApplicationContext: ReactApplicationContext? = null
 
   private val mockPromise: Promise = mock(Promise::class.java)
   private var tempPath: String? = null
@@ -51,6 +55,7 @@ class FileGatewayModuleTest {
   fun beforeAll() {
     val applicationContext = ApplicationProvider.getApplicationContext<android.content.Context>()
     val reactApplicationContext = ReactApplicationContext(applicationContext)
+    this.reactApplicationContext = reactApplicationContext
 
     reactModule = FileGatewayModule(reactApplicationContext)
 
@@ -72,6 +77,68 @@ class FileGatewayModuleTest {
 
   @get:Rule
   val folder = TemporaryFolder()
+
+  @Test
+  fun writeFile_ApplicationIntention_ReturnsPath() {
+    reactModule?.writeFile("abba.txt", "010101", "application", null, mockPromise)
+
+    val expectedPath = "${reactApplicationContext?.filesDir}/abba.txt"
+    verify(mockPromise, times(1)).resolve(expectedPath)
+    assertThat(File(expectedPath).exists()).isEqualTo(true)
+  }
+
+  @Test
+  fun writeFile_EphemeralIntention_ReturnsPath() {
+    reactModule?.writeFile("abba.txt", "010101", "ephemeral", null, mockPromise)
+
+    val expectedPath = "${reactApplicationContext?.cacheDir}/abba.txt"
+    verify(mockPromise, times(1)).resolve(expectedPath)
+    assertThat(File(expectedPath).exists()).isEqualTo(true)
+  }
+
+  @Test
+  @Config(sdk = [Build.VERSION_CODES.O])
+  fun writeFile_Legacy_PersistentIntention_DownloadCollection_ReturnsPath() {
+    reactModule?.writeFile("abba.txt", "010101", "persistent", "download", mockPromise)
+
+    val expectedPath = "file://${reactApplicationContext?.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS + "/abba.txt")}"
+    verify(mockPromise, times(1)).resolve(expectedPath)
+    assertThat(File(expectedPath.removePrefix("file://")).exists()).isEqualTo(true)
+  }
+
+  @Test
+  fun deleteFile_ReturnsPath() {
+    val file = folder.newFile()
+
+    reactModule?.deleteFile(file.absolutePath, mockPromise)
+
+    verify(mockPromise, times(1)).resolve(file.absolutePath)
+    assertThat(file.exists()).isEqualTo(false)
+  }
+
+  @Test
+  fun deleteFile_NonExistent_ReturnsError() {
+    reactModule?.deleteFile("non-existent-file.txt", mockPromise)
+
+    val exception = ArgumentCaptor.forClass(Exception::class.java)
+
+    verify(mockPromise, times(1)).reject(eq(ERROR_DELETE_FILE_FAILED), exception.capture())
+    assertThat(exception.value).isInstanceOf(DeleteFileException::class.java)
+    assertThat(exception.value.message).isEqualTo("The file does not exist")
+  }
+
+  @Test
+  fun deleteFile_IsDirectory_ReturnsError() {
+    val tempPath = folder.newFolder()
+    reactModule?.deleteFile(tempPath.absolutePath, mockPromise)
+
+    val exception = ArgumentCaptor.forClass(Exception::class.java)
+
+    verify(mockPromise, times(1)).reject(eq(ERROR_DELETE_FILE_FAILED), exception.capture())
+    assertThat(exception.value).isInstanceOf(DeleteFileException::class.java)
+    assertThat(exception.value.message).isEqualTo("The file is a directory")
+    assertThat(tempPath.exists()).isEqualTo(true)
+  }
 
   @Test
   fun createDirectory_ReturnsPath() {
