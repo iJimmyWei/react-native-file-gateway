@@ -11,11 +11,9 @@ import android.util.Base64
 import android.webkit.MimeTypeMap
 import androidx.annotation.RequiresApi
 import com.facebook.react.bridge.*
-import com.reactnativefilegateway.FileGatewayModule.Errors.Companion.ERROR_CREATE_DIRECTORY_FAILED
-import com.reactnativefilegateway.FileGatewayModule.Errors.Companion.ERROR_DELETE_DIRECTORY_FAILED
-import com.reactnativefilegateway.FileGatewayModule.Errors.Companion.ERROR_UNKNOWN_ERROR
 import com.reactnativefilegateway.exceptions.CreateDirectoryException
 import com.reactnativefilegateway.exceptions.DeleteDirectoryException
+import com.reactnativefilegateway.exceptions.ListDirectoryException
 import java.io.File
 import java.io.FileWriter
 import java.io.IOException
@@ -44,6 +42,7 @@ class FileGatewayModule(reactContext: ReactApplicationContext) : ReactContextBas
     companion object {
       var ERROR_CREATE_DIRECTORY_FAILED = "ERROR_CREATE_DIRECTORY_FAILED"
       var ERROR_DELETE_DIRECTORY_FAILED = "ERROR_DELETE_DIRECTORY_FAILED"
+      var ERROR_LIST_DIRECTORY_FAILED = "ERROR_LIST_DIRECTORY_FAILED"
 
       /** Raised for unexpected errors.  */
       var ERROR_UNKNOWN_ERROR = "ERROR_UNKNOWN_ERROR"
@@ -360,9 +359,9 @@ class FileGatewayModule(reactContext: ReactApplicationContext) : ReactContextBas
 
       promise.resolve(path)
     } catch (e: CreateDirectoryException) {
-      promise.reject(ERROR_CREATE_DIRECTORY_FAILED, e)
+      promise.reject(Errors.ERROR_CREATE_DIRECTORY_FAILED, e)
     } catch (e: Throwable) {
-      promise.reject(ERROR_UNKNOWN_ERROR, e)
+      promise.reject(Errors.ERROR_UNKNOWN_ERROR, e)
     }
   }
 
@@ -376,7 +375,7 @@ class FileGatewayModule(reactContext: ReactApplicationContext) : ReactContextBas
 
       promise.resolve(isDirectory)
     } catch (e: Throwable) {
-      promise.reject(ERROR_UNKNOWN_ERROR, e)
+      promise.reject(Errors.ERROR_UNKNOWN_ERROR, e)
     }
   }
 
@@ -399,10 +398,10 @@ class FileGatewayModule(reactContext: ReactApplicationContext) : ReactContextBas
 
       promise.resolve(path)
     } catch(e: DeleteDirectoryException) {
-      promise.reject(ERROR_DELETE_DIRECTORY_FAILED, e)
+      promise.reject(Errors.ERROR_DELETE_DIRECTORY_FAILED, e)
     }
     catch (e: Throwable) {
-      promise.reject(ERROR_UNKNOWN_ERROR, e)
+      promise.reject(Errors.ERROR_UNKNOWN_ERROR, e)
     }
   }
 
@@ -412,22 +411,40 @@ class FileGatewayModule(reactContext: ReactApplicationContext) : ReactContextBas
   @ReactMethod
   fun listFiles(path: String, recursive: Boolean = false, promise: Promise) {
     try {
+      val filePath = File(path)
+      if (!filePath.isDirectory) {
+        throw ListDirectoryException("Not a directory")
+      }
+
       val filesArray = Arguments.createArray()
 
       if (recursive) {
-        val walkTopDown = File(path).walkTopDown()
+        val walkTopDown = filePath.walkTopDown()
         walkTopDown.forEach {
           val files = it.list()
           files?.forEach { file ->
-            filesArray.pushString(file)
+            val f = File("${path}/${file}")
+
+            if (!f.isDirectory) {
+              filesArray.pushString(file)
+            }
           }
         }
       } else {
-        val files = File(path).list()
-        files?.forEach { filesArray.pushString(it) }
+        val files = filePath.list()
+
+        files?.forEach { file ->
+          val f = File("${path}/${file}")
+
+          if (!f.isDirectory) {
+            filesArray.pushString(file)
+          }
+        }
       }
 
       promise.resolve(filesArray)
+    } catch (e: ListDirectoryException) {
+      promise.reject(Errors.ERROR_LIST_DIRECTORY_FAILED, e)
     } catch (e: Throwable) {
       promise.reject(e)
     }
