@@ -446,7 +446,7 @@ class FileGatewayModule(reactContext: ReactApplicationContext) : ReactContextBas
     } catch (e: ListDirectoryException) {
       promise.reject(Errors.ERROR_LIST_DIRECTORY_FAILED, e)
     } catch (e: Throwable) {
-      promise.reject(e)
+      promise.reject(Errors.ERROR_UNKNOWN_ERROR, e)
     }
   }
 
@@ -462,7 +462,7 @@ class FileGatewayModule(reactContext: ReactApplicationContext) : ReactContextBas
       val exists = File(path).exists()
       promise.resolve(exists)
     } catch (e: Throwable) {
-      promise.reject(e)
+      promise.reject(Errors.ERROR_UNKNOWN_ERROR, e)
     }
   }
 
@@ -484,13 +484,9 @@ class FileGatewayModule(reactContext: ReactApplicationContext) : ReactContextBas
 
       val path = Files.move(sourcePath, destinationPath, StandardCopyOption.REPLACE_EXISTING)
 
-      promise.resolve(path)
+      promise.resolve(path.toString())
     } catch (e: Throwable) {
-      promise.reject(e)
+      promise.reject(Errors.ERROR_UNKNOWN_ERROR, e)
     }
   }
-
-  // TO:DO
-  // - Cryptography
-  // - Downloads/Uploads
 }

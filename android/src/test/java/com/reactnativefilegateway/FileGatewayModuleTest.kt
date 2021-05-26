@@ -239,4 +239,29 @@ class FileGatewayModuleTest {
     assertThat(resolvedArray.value.size()).isEqualTo(4)
     assertThat(resolvedArray.value.toArrayList()).containsExactlyInAnyOrder("test1", "test2", "test3", "test4")
   }
+
+  @Test
+  fun exists_ReturnsTrue() {
+    reactModule?.exists(tempPath.toString(), mockPromise)
+
+    verify(mockPromise, times(1)).resolve(true)
+  }
+
+  @Test
+  fun exists_ReturnsFalse() {
+    reactModule?.exists("", mockPromise)
+
+    verify(mockPromise, times(1)).resolve(false)
+  }
+
+  @Test
+  fun move_ReturnsTargetPath() {
+    val originPath = folder.newFolder().absolutePath
+    val targetPath = "${tempPath}/1337"
+
+    reactModule?.move(originPath, targetPath, mockPromise)
+
+    verify(mockPromise, times(1)).resolve(targetPath)
+    assertThat(File(targetPath).exists()).isEqualTo(true)
+  }
 }
