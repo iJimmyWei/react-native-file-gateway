@@ -1,7 +1,6 @@
 package com.reactnativefilegateway
 
 import android.app.Application
-
 import android.os.Build
 import android.os.Environment
 import androidx.test.core.app.ApplicationProvider
@@ -13,9 +12,7 @@ import com.reactnativefilegateway.exceptions.CreateDirectoryException
 import com.reactnativefilegateway.exceptions.DeleteDirectoryException
 import com.reactnativefilegateway.exceptions.DeleteFileException
 import com.reactnativefilegateway.exceptions.ListDirectoryException
-
 import org.assertj.core.api.Assertions.assertThat
-
 import org.junit.After
 import org.junit.Before
 import org.junit.Rule
@@ -79,8 +76,68 @@ class FileGatewayModuleTest {
   val folder = TemporaryFolder()
 
   @Test
+  fun writeFileDefaultEncoding_IsUTF8() {
+    reactModule?.writeFile("test.txt", "helloworld", "ephemeral", null, null, mockPromise)
+    val expectedPath = "${reactApplicationContext?.cacheDir}/test.txt"
+    verify(mockPromise, times(1)).resolve(expectedPath)
+
+    reset(mockPromise)
+
+    reactModule?.readFile(expectedPath, "utf-8", mockPromise)
+    verify(mockPromise, times(1)).resolve("helloworld")
+  }
+
+  @Test
+  fun writeFileUTF8Encoding_IsUTF8() {
+    reactModule?.writeFile("test.txt", "helloworld", "ephemeral", "utf-8", null, mockPromise)
+    val expectedPath = "${reactApplicationContext?.cacheDir}/test.txt"
+    verify(mockPromise, times(1)).resolve(expectedPath)
+
+    reset(mockPromise)
+
+    reactModule?.readFile(expectedPath, "UTF-8", mockPromise)
+    verify(mockPromise, times(1)).resolve("helloworld")
+  }
+
+  @Test
+  fun writeFileUTF16Encoding_IsUTF16() {
+    reactModule?.writeFile("test.txt", "helloworld123", "ephemeral", "utf-16", null, mockPromise)
+    val expectedPath = "${reactApplicationContext?.cacheDir}/test.txt"
+    verify(mockPromise, times(1)).resolve(expectedPath)
+
+    reset(mockPromise)
+
+    reactModule?.readFile(expectedPath, "utf-16", mockPromise)
+    verify(mockPromise, times(1)).resolve("helloworld123")
+  }
+
+  @Test
+  fun writeFileUTF32Encoding_IsUTF32() {
+    reactModule?.writeFile("test.txt", "helloworld123", "ephemeral", "utf-32", null, mockPromise)
+    val expectedPath = "${reactApplicationContext?.cacheDir}/test.txt"
+    verify(mockPromise, times(1)).resolve(expectedPath)
+
+    reset(mockPromise)
+
+    reactModule?.readFile(expectedPath, "utf-32", mockPromise)
+    verify(mockPromise, times(1)).resolve("helloworld123")
+  }
+
+  @Test
+  fun writeFileBase64Encoding_IsBase64() {
+    reactModule?.writeFile("test.txt", "helloworld12345", "ephemeral", "base64", null, mockPromise)
+    val expectedPath = "${reactApplicationContext?.cacheDir}/test.txt"
+    verify(mockPromise, times(1)).resolve(expectedPath)
+
+    reset(mockPromise)
+
+    reactModule?.readFile(expectedPath, "base64", mockPromise)
+    verify(mockPromise, times(1)).resolve("helloworld12345")
+  }
+
+  @Test
   fun writeFile_ApplicationIntention_ReturnsPath() {
-    reactModule?.writeFile("abba.txt", "010101", "application", null, mockPromise)
+    reactModule?.writeFile("abba.txt", "010101", "application", null, null, mockPromise)
 
     val expectedPath = "${reactApplicationContext?.filesDir}/abba.txt"
     verify(mockPromise, times(1)).resolve(expectedPath)
@@ -89,7 +146,7 @@ class FileGatewayModuleTest {
 
   @Test
   fun writeFile_EphemeralIntention_ReturnsPath() {
-    reactModule?.writeFile("abba.txt", "010101", "ephemeral", null, mockPromise)
+    reactModule?.writeFile("abba.txt", "010101", "ephemeral", null, null, mockPromise)
 
     val expectedPath = "${reactApplicationContext?.cacheDir}/abba.txt"
     verify(mockPromise, times(1)).resolve(expectedPath)
@@ -99,7 +156,7 @@ class FileGatewayModuleTest {
   @Test
   @Config(sdk = [Build.VERSION_CODES.O])
   fun writeFile_Legacy_PersistentIntention_DownloadCollection_ReturnsPath() {
-    reactModule?.writeFile("abba.txt", "010101", "persistent", "download", mockPromise)
+    reactModule?.writeFile("abba.txt", "010101", "persistent", null, "download", mockPromise)
 
     val expectedPath = "file://${reactApplicationContext?.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS + "/abba.txt")}"
     verify(mockPromise, times(1)).resolve(expectedPath)

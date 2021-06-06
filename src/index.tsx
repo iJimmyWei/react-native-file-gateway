@@ -19,8 +19,8 @@ interface RawStatus {
 
 type RawFileGatewayType = {
     // File operations
-    readFile(path: string, encoding: Encoding): Promise<string>; //to:do encoding opt
-    writeFile(fileName: string, data: string, intention: Intention, collection: Collection): Promise<string>; //to:do encoding opt
+    readFile(path: string, encoding: Encoding): Promise<string>;
+    writeFile(fileName: string, data: string, intention: Intention, encoding: Encoding, collection: Collection): Promise<string>; //to:do encoding opt
     deleteFile(path: string): Promise<string>;
     status(path: string): Promise<RawStatus>;
 
@@ -34,20 +34,34 @@ type RawFileGatewayType = {
     exists(path: string): Promise<boolean>;
 };
 
-function writeFilesGateway(fileName: string, data: string, intention: Intention, collection?: Collection) {
+interface DataWithEncoding {
+    data: string,
+    encoding: Encoding,
+}
+
+function writeFilesGateway(
+    fileName: string,
+    data: string | DataWithEncoding,
+    intention: Intention,
+    collection?: Collection
+) {
     //TODO: determine what the collection should be if not specified using the mime
     if (!collection) {
         collection = "download";
     }
 
-    return writeFile(fileName, data, intention, collection);
+    if (typeof data === "string") {
+        return writeFile(fileName, data, intention, "utf-8", collection);
+    }
+
+    return writeFile(fileName, data.data, intention, data.encoding, collection);
 }
 
 function listFilesGateway(path: string, recursive?: boolean): Promise<string[]> {
     return listFiles(path, recursive ?? false);
 }
 
-export type Encoding = "utf-8" | "base64";
+export type Encoding = "utf-8" | "utf-16" | "utf-32" | "base64";
 function readFileGateway(path: string, encoding?: Encoding): Promise<string> {
     const defaultEncoding: Encoding = "utf-8";
     
@@ -59,10 +73,16 @@ export const Dirs: {
     Application: string
 } = FileGateway.getConstants();
 
-export interface FileGatewayType extends RawFileGatewayType {
+export interface FileGatewayType {
     listFiles: typeof listFilesGateway;
     readFile: typeof readFileGateway;
     writeFile: typeof writeFilesGateway;
+    exists: RawFileGatewayType["exists"];
+    isDirectory: RawFileGatewayType["isDirectory"];
+    moveDirectory: RawFileGatewayType["moveDirectory"];
+    deleteFile: RawFileGatewayType["deleteFile"];
+    deleteDirectory: RawFileGatewayType["deleteDirectory"];
+    status: RawFileGatewayType["status"];
 }
 
 const fileGateway: FileGatewayType = {
