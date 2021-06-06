@@ -16,15 +16,20 @@ import com.reactnativefilegateway.exceptions.DeleteDirectoryException
 import com.reactnativefilegateway.exceptions.DeleteFileException
 import com.reactnativefilegateway.exceptions.ListDirectoryException
 import java.io.File
-import java.io.FileWriter
+import java.io.FileOutputStream
+import java.io.ByteArrayOutputStream
 import java.io.IOException
+import java.io.OutputStream
 import java.net.URLConnection
+import java.nio.charset.Charset
 import java.nio.file.Files
 import java.nio.file.Paths
 import java.nio.file.StandardCopyOption
 import java.nio.file.attribute.BasicFileAttributes
 import java.text.SimpleDateFormat
-import java.util.*
+import java.util.Date
+import java.util.TimeZone
+import java.util.Locale
 
 class FileGatewayModule(reactContext: ReactApplicationContext) : ReactContextBaseJavaModule(reactContext) {
   override fun getName(): String {
@@ -55,12 +60,26 @@ class FileGatewayModule(reactContext: ReactApplicationContext) : ReactContextBas
   // File Methods
   ///////////////////////////
 
-  private fun writeInternalFile(path: String, fileName: String, data: String): String {
-    val out = FileWriter(File(path, fileName))
-    out.write(data)
-    out.close()
+  private fun writeFileUsingOutputStream(output: OutputStream, data: String, encoding: String?) {
+    if (encoding == "base64") {
+      val bytes: ByteArray = Base64.encode(data.toByteArray(), Base64.NO_WRAP)
+      output.use { out -> out.write(bytes) }
+      return
+    }
 
-    return "$path/$fileName";
+    val charsetEncoding = encodingStringToCharset(encoding)
+
+    val bytes: ByteArray = data.toByteArray(charsetEncoding)
+    output.use { out -> out.write(bytes) }
+  }
+
+  private fun writeInternalFile(path: String, fileName: String, data: String, encoding: String?): String {
+    val path = "$path/$fileName"
+
+    val outputStream = FileOutputStream(path)
+    writeFileUsingOutputStream(outputStream, data, encoding)
+
+    return path;
   }
 
   private fun createAudioStore(fileName: String): Uri? {
@@ -136,22 +155,39 @@ class FileGatewayModule(reactContext: ReactApplicationContext) : ReactContextBas
     )
   }
 
+  private fun encodingStringToCharset(encoding: String?): Charset {
+    return when (encoding) {
+      "utf-8" -> {
+        Charsets.UTF_8
+      }
+      "utf-16" -> {
+        Charsets.UTF_16
+      }
+      "utf-32" -> {
+        Charsets.UTF_32
+      }
+      else -> {
+        Charsets.UTF_8
+      }
+    }
+  }
+
   /**
    * Writes a file given it's [fileName] and returning a path
    * The [intention] may be either application (data removed on uninstall), persistent (beyond application uninstall), or ephemeral (cache)
    * The [collection] may be either audio, image, video, document or download - if unspecified, it will be determined automatically
    */
   @ReactMethod
-  fun writeFile(fileName: String, data: String, intention: String, collection: String?, promise: Promise) {
+  fun writeFile(fileName: String, data: String, intention: String, encoding: String?, collection: String?, promise: Promise) {
     try {
       if (intention == "application") {
-        val path = writeInternalFile(reactApplicationContext.filesDir.path, fileName, data)
+        val path = writeInternalFile(reactApplicationContext.filesDir.path, fileName, data, encoding)
         promise.resolve(path)
         return;
       }
 
       if (intention == "ephemeral") {
-        val path = writeInternalFile(reactApplicationContext.cacheDir.path, fileName, data)
+        val path = writeInternalFile(reactApplicationContext.cacheDir.path, fileName, data, encoding)
         promise.resolve(path)
         return;
       }
@@ -173,8 +209,7 @@ class FileGatewayModule(reactContext: ReactApplicationContext) : ReactContextBas
         store.let {
           reactApplicationContext.contentResolver.openOutputStream(it)
         }?.use { output ->
-          output.write(data.toByteArray())
-          output.close()
+          writeFileUsingOutputStream(output, data, encoding)
         }
 
         promise.resolve(store.toString())
@@ -189,18 +224,27 @@ class FileGatewayModule(reactContext: ReactApplicationContext) : ReactContextBas
   /**
    * Reads a file given it's [path] and returning a string based on the [encoding] (base64, utf-8)
    */
-  @ExperimentalStdlibApi
   @ReactMethod
-  fun readFile(path: String, encoding: String, promise: Promise) {
+  fun readFile(path: String, encoding: String?, promise: Promise) {
     try {
-      val data = File(path).inputStream().use { it.readBytes() }
+      val stream = File(path).inputStream()
 
-      if (encoding == "base64") {
-        val encodedB64String = Base64.encodeToString(data, Base64.DEFAULT)
-        promise.resolve(encodedB64String)
+      val result = ByteArrayOutputStream()
+      val buffer = ByteArray(1024)
+
+      var length: Int
+      while (stream.read(buffer).also { length = it } != -1) {
+        result.write(buffer, 0, length)
       }
 
-      promise.resolve(data.decodeToString())
+      val data = if (encoding == "base64") {
+        val bytes = Base64.decode(result.toByteArray(), Base64.NO_WRAP)
+        String(bytes, Charsets.UTF_8)
+      } else {
+        result.toString(encoding ?: "utf-8")
+      }
+
+      promise.resolve(data)
     } catch (e: Throwable) {
       promise.reject(Errors.ERROR_UNKNOWN_ERROR, e)
     }

@@ -43,34 +43,46 @@ import FileGateway from  "react-native-file-gateway";
 // Scenario 1: Writing an MP4 file to the secure application store.
 // This file will be deleted on uninstall.
 const path = await FileGateway.writeFile(
-	"bigBuckBunny.mp4", // Name of the file
-	"010101", // Data to be written as a string (UTF-8 encoding is default)
-	"application" // Intention of the file's lifetime. Can be application, ephemeral, or persistent (see more in documentation below)
+  "bigBuckBunny.mp4", // Name of the file
+  "010101", // Data to be written as a string (UTF-8 encoding is default)
+  "application" // Intention of the file's lifetime. Can be application, ephemeral, or persistent (see more in documentation below)
 )
 
 // Scenario 2: Writing an image file to the cache.
 // This file will be deleted on uninstall.
 const path = await FileGateway.writeFile(
-	"bigBuckBunny.mp4",
-	"010101",
-	"ephemeral" // Ephemeral will store this file into the system's cache
+  "bigBuckBunny.mp4",
+  "010101",
+  "ephemeral" // Ephemeral will store this file into the system's cache
+)
+
+// Scenario 3: Writing an image file to the cache using base64 encoding.
+const path = await FileGateway.writeFile(
+  "bigBuckBunny.mp4",
+  {
+	  data: "010101",
+	  encoding: "base64" // Specifying this will encode the written file as base64 (UTF-8 as the charset)
+  },
+  "ephemeral"
 )
 
 ```
 
 ### Functions
-`writeFile(fileName: string, data: string, intention: Intention, collection?: Collection): Promise<string>` - Writes to a file and **returns it's path** as a `Promise<string>`
--  Intention `("application"  |  "ephemeral"  |  "persistent")`
+`writeFile(fileName: string, data: string | DataWithEncoding, intention: Intention, collection?: Collection): Promise<string>` - Writes to a file and **returns it's path** as a `Promise<string>`
+-  DataWithEncoding - explicitly define the encoding `("utf-8", "utf-16", "utf-32", "base64")` within the `encoding` key, and the data within the `payload` key
+	- ```{ data: string; encoding: Encoding }``` 
+-  Intention: Intention `("application"  |  "ephemeral"  |  "persistent")`
      - The **intention** is to indicate how the file will be stored.
 	     -  `application` intention will allocate the file into the application's own storage, but other applications won't be able to access it. The file will be lost on uninstall.
 	     - `ephemeral` intention will allocate the file into the cache storage. The file will be lost on uninstall
 	     - `persistent` intention will allocate the file into external storage. The file will persist on uninstall. Useful for media content.
 -  Collection `("audio"  |  "image"  |  "video"  | "download")`
-     - The **collection** is to indicate where the file will be stored (ONLY APPLICABLE FOR `persistent` intentions). Fallsback to `download` if not specified. 
+     - The **collection** is to indicate where the file will be stored (ONLY APPLICABLE FOR `persistent` intentions). Fallsback to `download` if not specified.
 ---
   
-`readFile(path: string, encoding: Encoding): Promise<string>` - Reads a given file, given it's path and **returns the data** as a `Promise<string>`
--  Encoding `("utf-8")`
+`readFile(path: string, encoding?: Encoding): Promise<string>` - Reads a given file, given it's path and **returns the data** as a `Promise<string>`
+-  Encoding `("utf-8", "utf-16", "utf-32", "base64")`
 	* Sets the encoding when reading the file
 ---
   
