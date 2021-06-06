@@ -60,8 +60,8 @@ const path = await FileGateway.writeFile(
 const path = await FileGateway.writeFile(
   "bigBuckBunny.mp4",
   {
-	  data: "010101",
-	  encoding: "base64" // Specifying this will encode the written file as base64 (UTF-8 as the charset)
+    data: "010101",
+    encoding: "base64" // Specifying this will encode the written file as base64 (UTF-8 as the charset)
   },
   "ephemeral"
 )
