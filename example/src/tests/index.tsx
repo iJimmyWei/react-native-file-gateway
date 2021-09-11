@@ -1,4 +1,4 @@
-import { applicationFileTests } from "./applicationFiles";
+import { applicationFileTests } from "./writeRead";
 
 interface Test {
     title: string;
