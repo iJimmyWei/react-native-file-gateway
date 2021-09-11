@@ -69,8 +69,8 @@ function readFileGateway(path: string, encoding?: Encoding): Promise<string> {
 }
 
 export const Dirs: {
-    Cache: string,
-    Application: string
+    CacheDirectory: string,
+    ApplicationDirectory: string
 } = FileGateway.getConstants();
 
 export interface FileGatewayType {
@@ -83,6 +83,7 @@ export interface FileGatewayType {
     deleteFile: RawFileGatewayType["deleteFile"];
     deleteDirectory: RawFileGatewayType["deleteDirectory"];
     status: RawFileGatewayType["status"];
+    constants: typeof Dirs;
 }
 
 const fileGateway: FileGatewayType = {
@@ -94,7 +95,8 @@ const fileGateway: FileGatewayType = {
     moveDirectory,
     deleteFile,
     deleteDirectory,
-    status
+    status,
+    constants: Dirs
 };
 
 export default fileGateway;

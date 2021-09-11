@@ -38,8 +38,8 @@ class FileGatewayModule(reactContext: ReactApplicationContext) : ReactContextBas
 
   override fun getConstants(): Map<String, Any>? {
     val constants: MutableMap<String, Any> = HashMap()
-    constants["Cache"] = reactApplicationContext.cacheDir.path
-    constants["Application"] = reactApplicationContext.filesDir.path
+    constants["CacheDirectory"] = reactApplicationContext.cacheDir.path
+    constants["ApplicationDirectory"] = reactApplicationContext.filesDir.path
     return constants
   }
 

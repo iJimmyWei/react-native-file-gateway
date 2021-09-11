@@ -10,14 +10,14 @@
     "watch": "tsc --watch"
   },
   "dependencies": {
+    "faker": "5.5.3",
     "react": "17.0.2",
-    "react-native": "0.65.1",
-    "faker": "5.5.3"
+    "react-native": "0.65.1"
   },
   "devDependencies": {
     "@babel/core": "7.14.3",
-    "@types/faker": "5.5.8",
     "@babel/runtime": "7.14.0",
+    "@types/faker": "5.5.8",
     "@types/react-native": "0.65.0",
     "babel-plugin-module-resolver": "4.1.0",
     "metro-react-native-babel-preset": "0.66.2",
