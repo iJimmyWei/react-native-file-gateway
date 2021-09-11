@@ -31,11 +31,11 @@ async function testWriteReadEmphemeralFile(): Promise<boolean> {
 
 export const applicationFileTests = [
     {
-        title: "should write a file to application storage",
+        title: "should write/read a file to application storage",
         handler: testWriteReadApplicationFile
     },
     {
-        title: "should write a file to ephemeral storage",
+        title: "should write/read a file to ephemeral storage",
         handler: testWriteReadEmphemeralFile
     }
 ]
