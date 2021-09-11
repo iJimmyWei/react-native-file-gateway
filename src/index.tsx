@@ -9,7 +9,7 @@ export type Collection = "audio" | "image" | "video" | "download";
 
 interface RawStatus {
     size: number;
-    mimeType?: string;
+    mime?: string;
     extension: string;
     nameWithoutExtension: string;
     lastModified: string;
