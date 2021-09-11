@@ -1,4 +1,5 @@
 import { applicationFileTests } from "./writeRead";
+import listFilesTests from "./listFiles";
 
 interface Test {
     title: string;
@@ -6,5 +7,6 @@ interface Test {
 }
 
 export const tests: Test[] = [
-    ...applicationFileTests
+    ...applicationFileTests,
+    ...listFilesTests
 ]

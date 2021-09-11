@@ -1,7 +1,7 @@
 import * as React from "react";
 import { useState } from "react";
 
-import { StyleSheet, View, Button } from "react-native";
+import { StyleSheet, View, Button, ScrollView } from "react-native";
 
 import FileGateway from "../../src";
 export { FileGateway };
@@ -24,30 +24,32 @@ function TestCaseButton({testCaseName, testNumber, onPress}: {testCaseName: stri
     }
     
     return (
-        <Button
-            title={`test case ${testNumber + 1} - ${testCaseName}`}
-            onPress={runTest}
-            color={hasPassed
-                ? "green"
-                : hasFailed
-                    ? "red"
-                    : "orange"
-                }
-        >
-        </Button>
+        <View style={{paddingBottom: 4}}>
+            <Button
+                title={`test case ${testNumber + 1} - ${testCaseName}`}
+                onPress={runTest}
+                color={hasPassed
+                    ? "green"
+                    : hasFailed
+                        ? "red"
+                        : "orange"
+                    }
+            >
+            </Button>
+        </View>
     )
 }
 
 export default function App() {
     return (
-        <View style={styles.container}>
+        <ScrollView contentContainerStyle={styles.container}>
             {tests.map((test, index) => <TestCaseButton
                 key={index}
                 testCaseName={test.title}
                 testNumber={index}
                 onPress={test.handler}
             />)}
-        </View>
+        </ScrollView>
     );
 }
 
