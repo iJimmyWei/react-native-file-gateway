@@ -92,7 +92,7 @@ const path = await FileGateway.writeFile(
 `status(path: string): Promise<RawStatus>` - Returns back the `Promise<RawStatus>` of a file, given it's `path`
   * `RawStatus` includes the following
 	  * `size` (in bytes)
-	  * `mimeType` (e.g `application/javascript`)
+	  * `mime` (e.g `application/javascript`)
 	  * `extension` (e.g `mp3`)
 	  * `nameWithoutExtension` (e.g `bigBuckBunny`)
 	  * `lastModified` (e.g `2021-05-19T21:10:48.197Z`- ISO UTC format)

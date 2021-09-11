@@ -1,5 +1,7 @@
 import { applicationFileTests } from "./writeRead";
 import listFilesTests from "./listFiles";
+import deleteFileTests from "./deleteFiles";
+import statusTests from "./status";
 
 interface Test {
     title: string;
@@ -8,5 +10,7 @@ interface Test {
 
 export const tests: Test[] = [
     ...applicationFileTests,
-    ...listFilesTests
+    ...listFilesTests,
+    ...deleteFileTests,
+    ...statusTests
 ]
